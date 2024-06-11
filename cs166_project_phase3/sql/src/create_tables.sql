@@ -6,7 +6,7 @@ DROP TABLE IF EXISTS GamesInOrder CASCADE;
 
 CREATE TABLE Users ( login varchar(50) NOT NULL,
                      password varchar(30) NOT NULL,
-                     role char(20) NOT NULL,
+                     role varchar(20) NOT NULL,
                      favGames text,
                      phoneNum varchar(20) NOT NULL,
                      numOverDueGames integer DEFAULT 0,
