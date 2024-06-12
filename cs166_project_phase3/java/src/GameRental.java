@@ -22,12 +22,14 @@
  import java.io.BufferedReader;
  import java.io.InputStreamReader;
  import java.util.List;
- 
+ import java.util.concurrent.ThreadLocalRandom;
+ import java.util.Date;
  import javax.management.relation.Role;
- 
+ import java.sql.Timestamp;
  import java.util.ArrayList;
  import java.lang.Math;
- 
+ import java.util.Random;
+ import java.util.Calendar;
  /**
   * This class defines a simple embedded SQL utility class that is designed to
   * work with PostgreSQL JDBC drivers.
@@ -271,7 +273,7 @@
              if (authorisedUser != null) {
                 String role=CheckRole(esql,authorisedUser);
                 System.out.println(String.format("Welcome %s %s",role ,authorisedUser));
-               boolean usermenu = true;
+                  boolean usermenu = true;
                while(usermenu) {
                  System.out.println("MAIN MENU");
                  System.out.println("---------");
@@ -299,38 +301,36 @@
                     case 1: viewProfile(esql,authorisedUser); break;
                     case 2: updateProfile(esql,authorisedUser); break;
                     case 3: viewCatalog(esql); break;
-                    case 4: placeOrder(esql); break;
+                    case 4: placeOrder(esql,authorisedUser); break;
                     case 5: viewAllOrders(esql); break;
                     case 6: viewRecentOrders(esql); break;
                     case 7: viewOrderInfo(esql); break;
                     case 8: viewTrackingInfo(esql); break;
                     case 9: 
                       if(role.equals("employees") || role.equals("managers")){
-                         updateTrackingInfo(esql); 
+                         updateTrackingInfo(esql,role); 
                       }
                       else{
                          System.out.println("For employees");
                       }
                       break;
                     case 10: 
-                    if(role.equals("managers")){
-                      updateCatalog(esql);
-                    }
-                    else{
-                      System.out.println("For managers");
-                    }
+                     if(role.equals("managers")){
+                        updateCatalog(esql);
+                     }
+                     else{
+                        System.out.println("For managers");
+                     }
                      break;
                     case 11: 
-                    if(role.equals("managers")){
-                      authorisedUser = updateUser(esql,authorisedUser);
+                    if(!(role.equals("managers"))){
+                      authorisedUser = updateUser  (esql,authorisedUser);
                       role=CheckRole(esql,authorisedUser);
-                      
                     }
                     else{
                       System.out.println("For managers");
                     }
                     break;
- 
                     case 20: usermenu = false; break;
                     default : System.out.println("Unrecognized choice!"); break;
                  }
@@ -503,6 +503,7 @@
           System.err.println (e.getMessage());
        }
     }
+    
     public static void viewCatalog(GameRental esql) {
        try{
           System.out.println("1.Print all Catalog");
@@ -546,8 +547,62 @@
        }
  
     }
-    public static void placeOrder(GameRental esql) {
-       
+    public static void placeOrder(GameRental esql,String authorisedUser) {
+      try {
+         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+         System.out.print("Game ID?: ");
+         String gameID = in.readLine();
+         System.out.print("How Many?: ");
+         String a_ = in.readLine();
+         int amount = Integer.parseInt(a_);
+
+         String query = String.format("SELECT price FROM Catalog WHERE gameID='%s'", gameID);
+         List<List<String>> result = esql.executeQueryAndReturnResult(query);
+
+         if (result.isEmpty() || result.get(0).isEmpty()) {
+             System.out.println("Game ID not found.");
+             return;
+         }
+
+         float price = Float.parseFloat(result.get(0).get(0));
+         System.out.println("price: " + price);
+
+         if (price > 0) {
+             System.out.println(String.format("Total Price is %s", price * amount));
+             int rentalOrderID = Math.abs(ThreadLocalRandom.current().nextInt() % 99999);
+             Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis());
+             Calendar calendar = Calendar.getInstance();
+             calendar.setTime(currentTimestamp);
+             calendar.add(Calendar.DAY_OF_MONTH, 14);
+            Timestamp timestampDue = new Timestamp(calendar.getTimeInMillis());
+             query = String.format("INSERT INTO RentalOrder (rentalOrderID, login, noOfGames, totalPrice, orderTimestamp, dueDate) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');",
+                     rentalOrderID, authorisedUser, amount, price * amount, currentTimestamp, timestampDue);
+             esql.executeUpdate(query);
+
+             int trackingID = Math.abs(ThreadLocalRandom.current().nextInt() % 99999);
+             query = String.format("INSERT INTO TrackingInfo (trackingID, rentalOrderID, status, currentLocation, courierName, lastUpdateDate, additionalComments) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s');",
+                     trackingID, rentalOrderID, "ordered", "shop", "Name", currentTimestamp, " ");
+             esql.executeUpdate(query);
+
+             query = String.format("INSERT INTO GamesInOrder (rentalOrderID, gameID, unitsOrdered) VALUES ('%s', '%s', '%s');",
+                     rentalOrderID, gameID, amount);
+             esql.executeUpdate(query);
+             
+               query = String.format("SELECT * FROM RentalOrder WHERE login='%s';", authorisedUser);
+             // Execute the query and print the results
+             esql.executeQueryAndPrintResult(query);
+             query = String.format("SELECT * FROM TrackingInfo WHERE rentalOrderID='%s';", rentalOrderID);
+             esql.executeQueryAndPrintResult(query);
+             query = String.format("SELECT * FROM GamesInOrder WHERE rentalOrderID='%s';", rentalOrderID);
+             esql.executeQueryAndPrintResult(query);
+             System.out.println("Finished");
+         } else {
+             System.out.println("Invalid price retrieved.");
+         }
+     } catch (Exception e) {
+         e.printStackTrace();
+         System.out.println("An error occurred: " + e.getMessage());
+     }
     }
     public static void viewAllOrders(GameRental esql) {
        try {
@@ -568,7 +623,7 @@
          } catch (Exception e) {
              System.err.println(e.getMessage());
          }
-     }
+       }
     public static void viewRecentOrders(GameRental esql) {
        try {
              // Get the logged-in user from the session
@@ -594,12 +649,12 @@
     public static void viewOrderInfo(GameRental esql) {
        try{
           System.out.println("Enter your login");
-          String userLogin = in.readline();
-             //using rental orderID to check for a specific order
+          String userLogin = in.readLine();
+          //using rental orderID to check for a specific order
           System.out.println("Enter rental order ID");
           String rentalorderID = in.readLine();
           //verify it is the correct user 
-          String verification_query = String.format("SELECT * FROM RentalOrder WHERE rentalOrderID = '%s' AND login = '%s';",rentalOrderID, userLogin);
+          String verification_query = String.format("SELECT * FROM RentalOrder WHERE rentalOrderID = '%s' AND login = '%s';", rentalorderID, userLogin);
           int rows_affected = esql.executeQuery(verification_query);
  
           // retrieves rental order details if one or more exists
@@ -607,13 +662,13 @@
              String rentalOrderDetailsQuery = String.format("SELECT rentalorderID, orderTimestamp, dueDate, totalPrice FROM RentalOrder WHERE rentalOrderID = '%s';",rentalorderID);
              esql.executeQueryAndReturnResult(rentalOrderDetailsQuery);
  
-             String trackingInfoQuery = String.format("SELECT trackingID FROM TrackingInfo WHERE rentalOrderID = '%s';", rentalOrderID); 
+             String trackingInfoQuery = String.format("SELECT trackingID FROM TrackingInfo WHERE rentalOrderID = '%s';", rentalorderID); 
              esql.executeQueryAndPrintResult(trackingInfoQuery);
  
              String gamesListQuery = String.format(
                  "SELECT gameID, gameName, genre " +
                  "FROM Catalog " +
-                 "WHERE gameID IN (SELECT gameID FROM GamesInOrder WHERE rentalOrderID = '%s');",rentalOrderID);       
+                 "WHERE gameID IN (SELECT gameID FROM GamesInOrder WHERE rentalOrderID = '%s');",rentalorderID);       
                   esql.executeQueryAndPrintResult(gamesListQuery);
              } 
              else {
@@ -624,11 +679,12 @@
              System.err.println(e.getMessage());
        }
     }
+
     public static void viewTrackingInfo(GameRental esql) {
         try {
              // Get the logged-in user so they cannot access other data
              System.out.println("Enter your login");
-             String userLogin = in.readline();
+             String userLogin = in.readLine();
  
              // Ask the user to input a trackingID
              System.out.print("Enter the trackingID to view tracking information: ");
@@ -639,7 +695,7 @@
                  "SELECT T.trackingID, T.rentalOrderID, T.status, T.currentLocation, T.courierName, T.lastUpdateDate, T.additionalComments " +
                  "FROM TrackingInfo T, RentalOrder R " +
                  "WHERE T.trackingID='%s' AND T.rentalOrderID=R.rentalOrderID AND R.login='%s';", 
-                 trackingID, login);
+                 trackingID, userLogin);
  
              // Execute the query and print the results
              int rowCount = esql.executeQueryAndPrintResult(query);
@@ -652,13 +708,13 @@
              System.err.println(e.getMessage());
          }
      }
-    public static void updateTrackingInfo(GameRental esql) {
+    public static void updateTrackingInfo(GameRental esql,String role) {
        try {
-          if (!esql.currentUserRole.equals("employee") && !esql.currentUserRole.equals("manager")) {
+          if (!role.equals("employee") && !role.equals("manager")) {
                  System.out.println("You do not have permission to update tracking information.");
                  return;
              }
-          System.out.println("Enter the trackinID you wish to update")
+          System.out.println("Enter the trackinID you wish to update");
           System.out.println("1.Update status");
           System.out.println("2.Update currentLocation");
           System.out.println("3.Update courierName");
@@ -666,44 +722,52 @@
           switch(readChoice()){
              case 1:
              System.out.print("Enter the new status");
-             String status = in.readline();
+             String status = in.readLine();
+             System.out.print("Enter the trackingID to view tracking information: ");
+             String trackingID = in.readLine();
              String query1 = String.format("UPDATE TrackingInfo SET status='%s', lastUpdateDate=CURRENT_TIMESTAMP WHERE trackingID='%s';",status, trackingID);
-             esql.executeUpdate(query);
-             System.out.println("New status sucessfully updated")
+             esql.executeUpdate(query1);
+             System.out.println("New status sucessfully updated");
           break;
              case 2:
              System.out.print("Enter the new currentLocation");
-             String currentLocation = in.readline();
+             String currentLocation = in.readLine();
+            System.out.print("Enter the trackingID to view tracking information: ");
+             String trackingID_2 = in.readLine();
              String query2 = String.format(
                      "UPDATE TrackingInfo SET currentLocation='%s', lastUpdateDate=CURRENT_TIMESTAMP WHERE trackingID='%s';",
-                     currentLocation, trackingID);
-             esql.executeUpdate(query);
+                     currentLocation, trackingID_2);
+             esql.executeUpdate(query2);
              System.out.println("New currentLocation sucessfully updated");
           break;
           case 3:
              System.out.print("Enter the new courierName");
-             String courierName = in.readline();
+             String courierName = in.readLine();
+             System.out.print("Enter the trackingID to view tracking information: ");
+             String trackingID_3 = in.readLine();
              String query3 = String.format(
                      "UPDATE TrackingInfo SET courierName='%s', lastUpdateDate=CURRENT_TIMESTAMP WHERE trackingID='%s';",
-                     courierName, trackingID);
-             esql.executeUpdate(query);
+                     courierName, trackingID_3);
+             esql.executeUpdate(query3);
              System.out.println("New courierName sucessfully updated");
           break;
           case 4:
              System.out.print("Enter the new additionalComments");
-             String additionalComments = in.readline();
+             String additionalComments = in.readLine();
+             System.out.print("Enter the trackingID to view tracking information: ");
+             String trackingID_4 = in.readLine();
              String query4 = String.format(
                      "UPDATE TrackingInfo SET additionalComments='%s', lastUpdateDate=CURRENT_TIMESTAMP WHERE trackingID='%s';",
-                     additionalComments, trackingID);
-             esql.executeUpdate(query);
+                     additionalComments, trackingID_4);
+             esql.executeUpdate(query4);
              System.out.println("New additionalComments sucessfully updated");
           break;
+          }
           }
           catch (Exception e) {
              System.err.println(e.getMessage());
           }
        }
-    }
     public static void updateCatalog(GameRental esql) {
        try {
           System.out.println("1.Add new game");
@@ -722,7 +786,7 @@
        } catch (Exception e) {
           System.err.println (e.getMessage());
        }
- 
+
     }
     public static String updateUser(GameRental esql, String ID) {
        try{
@@ -849,5 +913,5 @@
        }
        return ID;
     }
- 
+
  } //end GameRe
