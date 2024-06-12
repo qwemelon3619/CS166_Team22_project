@@ -371,8 +371,48 @@ public class GameRental {
    public static void updateProfile(GameRental esql) {}
    public static void viewCatalog(GameRental esql) {}
    public static void placeOrder(GameRental esql) {}
-   public static void viewAllOrders(GameRental esql) {}
-   public static void viewRecentOrders(GameRental esql) {}
+   public static void viewAllOrders(GameRental esql) {
+      try {
+            // Get the logged-in user
+            System.out.print("Enter your login to view your rental history: ");
+            String login = in.readLine();
+
+            // Construct the query to fetch rental orders in an order based on timestamp
+            String query = String.format("SELECT rentalOrderID, orderTimestamp, dueDate, totalPrice FROM RentalOrder WHERE login='%s' ORDER BY orderTimestamp DESC;", login);
+            
+            // Execute the query and print the results
+            int rowCount = esql.executeQueryAndPrintResult(query);
+            
+            // Check if any rental orders were found
+            if (rowCount == 0) {
+                System.out.println("No rental history found for the user: " + login);
+            }
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
+        }
+    }
+   public static void viewRecentOrders(GameRental esql) {
+      try {
+            // Get the logged-in user from the session
+            System.out.print("Enter your login to view your 5 most recent rental history: ");
+            String login = in.readLine();
+            
+            //String login = esql.currentUser;
+
+            // Construct the query to fetch the five most recent rental orders in an order based on timestamp
+            String query = String.format("SELECT rentalOrderID, orderTimestamp, dueDate, totalPrice FROM RentalOrder WHERE login='%s' ORDER BY orderTimestamp DESC LIMIT 5;", login);
+            
+            // Execute the query and print the results
+            int rowCount = esql.executeQueryAndPrintResult(query);
+            
+            // Check if any rental orders were found
+            if (rowCount == 0) {
+                System.out.println("No recent orders found for the user: " + login);
+            }
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
+        }
+    }
    public static void viewOrderInfo(GameRental esql) {
       try{
          System.out.println("Enter your login");
@@ -406,8 +446,86 @@ public class GameRental {
             System.err.println(e.getMessage());
       }
    }
-   public static void viewTrackingInfo(GameRental esql) {}
-   public static void updateTrackingInfo(GameRental esql) {}
+   public static void viewTrackingInfo(GameRental esql) {
+       try {
+            // Get the logged-in user so they cannot access other data
+            System.out.println("Enter your login");
+            String userLogin = in.readline();
+
+            // Ask the user to input a trackingID
+            System.out.print("Enter the trackingID to view tracking information: ");
+            String trackingID = in.readLine();
+
+            // Construct the query to fetch tracking information for the given trackingID and ensure it belongs to the logged-in user
+            String query = String.format(
+                "SELECT T.trackingID, T.rentalOrderID, T.status, T.currentLocation, T.courierName, T.lastUpdateDate, T.additionalComments " +
+                "FROM TrackingInfo T, RentalOrder R " +
+                "WHERE T.trackingID='%s' AND T.rentalOrderID=R.rentalOrderID AND R.login='%s';", 
+                trackingID, login);
+
+            // Execute the query and print the results
+            int rowCount = esql.executeQueryAndPrintResult(query);
+
+            // Check if any tracking information was found
+            if (rowCount == 0) {
+                System.out.println("No tracking information found for the trackingID: " + trackingID);
+            }
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
+        }
+    }
+   public static void updateTrackingInfo(GameRental esql) {
+      try {
+         if (!esql.currentUserRole.equals("employee") && !esql.currentUserRole.equals("manager")) {
+                System.out.println("You do not have permission to update tracking information.");
+                return;
+            }
+         System.out.println("Enter the trackinID you wish to update")
+         System.out.println("1.Update status");
+         System.out.println("2.Update currentLocation");
+         System.out.println("3.Update courierName");
+         System.out.println("4.Update additionalComments");
+         switch(readChoice()){
+            case 1:
+            System.out.print("Enter the new status");
+            String status = in.readline();
+            String query1 = String.format("UPDATE TrackingInfo SET status='%s', lastUpdateDate=CURRENT_TIMESTAMP WHERE trackingID='%s';",status, trackingID);
+            esql.executeUpdate(query);
+            System.out.println("New status sucessfully updated")
+         break;
+            case 2:
+            System.out.print("Enter the new currentLocation");
+            String currentLocation = in.readline();
+            String query2 = String.format(
+                    "UPDATE TrackingInfo SET currentLocation='%s', lastUpdateDate=CURRENT_TIMESTAMP WHERE trackingID='%s';",
+                    currentLocation, trackingID);
+            esql.executeUpdate(query);
+            System.out.println("New currentLocation sucessfully updated");
+         break;
+         case 3:
+            System.out.print("Enter the new courierName");
+            String courierName = in.readline();
+            String query3 = String.format(
+                    "UPDATE TrackingInfo SET courierName='%s', lastUpdateDate=CURRENT_TIMESTAMP WHERE trackingID='%s';",
+                    courierName, trackingID);
+            esql.executeUpdate(query);
+            System.out.println("New courierName sucessfully updated");
+         break;
+         case 4:
+            System.out.print("Enter the new additionalComments");
+            String additionalComments = in.readline();
+            String query4 = String.format(
+                    "UPDATE TrackingInfo SET additionalComments='%s', lastUpdateDate=CURRENT_TIMESTAMP WHERE trackingID='%s';",
+                    additionalComments, trackingID);
+            esql.executeUpdate(query);
+            System.out.println("New additionalComments sucessfully updated");
+         break;
+         }
+         catch (Exception e) {
+            System.err.println(e.getMessage());
+         }
+      }
+   }
    public static void updateCatalog(GameRental esql) {}
    public static void updateUser(GameRental esql) {}
 
