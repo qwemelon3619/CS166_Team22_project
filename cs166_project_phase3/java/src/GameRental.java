@@ -28,7 +28,8 @@
  import java.sql.Timestamp;
  import java.util.ArrayList;
  import java.lang.Math;
- import java.util.Random;
+import java.math.BigDecimal;
+import java.util.Random;
  import java.util.Calendar;
  /**
   * This class defines a simple embedded SQL utility class that is designed to
@@ -775,11 +776,47 @@
           System.out.println("3.Remove game from catalog");
           switch (readChoice()) {
              case 1:
-                break;
+                     System.out.print("Enter game ID: ");
+                     String gameID = in.readLine();
+                     System.out.print("Enter game name: ");
+                     String gameName = in.readLine();
+                     System.out.print("Enter genre: ");
+                     String genre = in.readLine();
+                     System.out.print("Enter price: ");
+                     Float price = new Float(in.readLine());
+                     System.out.print("Enter description: ");
+                     String description = in.readLine();
+                     System.out.print("Enter image URL: ");
+                     String imageURL = in.readLine();
+                     String query = String.format("INSERT INTO Catalog (gameID, gameName, genre, price, description, imageURL) VALUES ('%s', '%s','%s', '%s', '%s', '%s')", gameID,gameName,genre,price,description,imageURL);
+                     esql.executeUpdate(query);
+                     System.out.println("Finished");
+                     break;
              case 2:
+             System.out.print("Enter game ID to update: ");
+               String gameID_2 = in.readLine();
+
+               System.out.print("Enter new game name: ");
+               String gameName_2 = in.readLine();
+               System.out.print("Enter new genre: ");
+               String genre_2 = in.readLine();
+               System.out.print("Enter new price: ");
+               BigDecimal price_2 = new BigDecimal(in.readLine());
+               System.out.print("Enter new description: ");
+               String description_2 = in.readLine();
+               System.out.print("Enter new image URL: ");
+               String imageURL_2 = in.readLine();
+               String query_2 = String.format("UPDATE Catalog SET gameName = '%s', genre = '%s', price = '%s', description = '%s', imageURL = '%s' WHERE gameID = '%s'", gameID_2,gameName_2,genre_2,price_2,description_2,imageURL_2);
+               esql.executeUpdate(query_2);
+               System.out.println("Finished");
              break;
              case 3:
-             break;
+               System.out.print("Enter game ID to remove: ");
+               String gameID_3 = in.readLine();
+               String query_3= String.format("DELETE FROM Catalog WHERE gameID = '%s", gameID_3);
+               esql.executeUpdate(query_3);
+               System.out.println("Finished");
+               break;
              default:
                 break;
           }
